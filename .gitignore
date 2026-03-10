@@ -2,8 +2,5 @@
 output/
 __pycache__/
 *.pyc
-
 *.egg-info/
-__pycache__/
-output/
-.env
+.podcasttf/

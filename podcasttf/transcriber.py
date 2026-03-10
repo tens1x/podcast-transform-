@@ -27,6 +27,12 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
     task_id = task_response.output.task_id
     print(f'  Task ID: {task_id}')
 
+    # Persist task_id so it can be resumed if interrupted
+    from podcasttf.task_state import load_state, save_state
+    state = load_state() or {}
+    state['task_id'] = task_id
+    save_state(state)
+
     return _wait_and_extract(task_id)
 
 
