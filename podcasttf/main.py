@@ -32,7 +32,7 @@ def _step(number: int, total: int, title: str):
 
 
 def main():
-    from setup_helper import check_and_setup
+    from podcasttf.setup_helper import check_and_setup
     check_and_setup()
 
     print()
@@ -80,9 +80,9 @@ def main():
     current_step = 0
 
     try:
-        from podcast_downloader import extract_audio_url, download_audio
-        from transcriber import transcribe_audio
-        from srt_formatter import sentences_to_srt
+        from podcasttf.podcast_downloader import extract_audio_url, download_audio
+        from podcasttf.transcriber import transcribe_audio
+        from podcasttf.srt_formatter import sentences_to_srt
 
         # Step: Extract
         current_step += 1
@@ -114,7 +114,7 @@ def main():
         if use_ai:
             current_step += 1
             _step(current_step, total_steps, 'AI post-processing (Qwen)')
-            from ai_postprocess import postprocess_text
+            from podcasttf.ai_postprocess import postprocess_text
             text = postprocess_text(text)
 
         # Step: Save outputs
