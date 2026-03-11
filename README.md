@@ -2,37 +2,46 @@
 
 小宇宙播客转文字工具。输入播客链接，自动提取音频并转录为文本。
 
+支持 TXT 纯文本和 SRT 字幕格式输出，可选 AI 后处理（自动加标点、分段）。
+
 ## 前置要求
 
 - macOS / Linux / Windows
-- Python 3.8+
+- Python 3.10+
 - 阿里云 DashScope API Key（[点此获取](https://bailian.console.aliyun.com/)）
 
-macOS 如果没有 Python 3，先安装：
+macOS 如果没有 Python 3.10+，先安装：
 
 ```bash
-brew install python3
+brew install python@3.12
 ```
 
 ## 安装步骤
 
+一键安装（推荐）：
+
 ```bash
-# 1. 克隆项目
 git clone https://github.com/tens1x/podcast-transform-.git
 cd podcast-transform-
-
-# 2. 创建虚拟环境
-python3 -m venv venv
-
-# 3. 激活虚拟环境
-source venv/bin/activate
-
-# 4. 安装依赖
-pip install -r requirements.txt
-
-# 5. 配置 API Key
-echo 'DASHSCOPE_API_KEY=你的key替换到这里' > .env
+bash setup.sh
 ```
+
+脚本会自动创建虚拟环境、安装依赖、引导你配置 API Key，完成后会提示如何运行。
+
+<details>
+<summary>手动安装</summary>
+
+```bash
+git clone https://github.com/tens1x/podcast-transform-.git
+cd podcast-transform-
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+```
+
+首次运行 `podcasttf` 时会引导你配置 API Key。
+
+</details>
 
 ## 使用方法
 
@@ -43,31 +52,29 @@ cd podcast-transform-
 source venv/bin/activate
 ```
 
-基本用法：
+然后运行：
 
 ```bash
-python main.py "https://www.xiaoyuzhoufm.com/episode/你的播客链接"
+podcasttf
 ```
 
-可选参数：
+程序会通过交互式界面引导你完成以下步骤：
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `-o, --output-dir` | 输出目录 | `output` |
-| `-l, --language` | 语言提示 | `zh` |
-| `--save-audio` | 同时保存音频文件 | 不保存 |
+1. 粘贴小宇宙播客链接
+2. 选择是否保存音频文件
+3. 选择输出格式（TXT / SRT / 两者都要）
+4. 选择是否启用 AI 后处理
+5. 设置输出目录
 
-示例：
+支持上下箭头选择、空格多选，操作体验类似现代 CLI 工具。
 
-```bash
-# 转录并保存音频
-python main.py "https://www.xiaoyuzhoufm.com/episode/xxxxx" --save-audio
+## 功能特性
 
-# 指定输出目录和语言
-python main.py "https://www.xiaoyuzhoufm.com/episode/xxxxx" -o transcripts -l en
-```
-
-转录结果会保存在输出目录下的 `.txt` 文件中。
+- 交互式 CLI 界面（上下选择、多选、彩色输出）
+- 支持 TXT 和 SRT 两种输出格式
+- AI 后处理（自动标点、分段，基于通义千问）
+- 任务中断自动恢复
+- 首次运行引导配置
 
 ## 用完退出虚拟环境
 
