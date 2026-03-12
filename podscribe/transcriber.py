@@ -1,17 +1,22 @@
 import time
 import requests
 from http import HTTPStatus
+from typing import Callable
+
 from dashscope.audio.asr import Transcription
 
 
-def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
+def transcribe_audio(
+    audio_url: str,
+    language: str = 'zh',
+    status_callback: Callable[[str], None] | None = None,
+) -> dict:
     """Transcribe audio and return full result with timestamps.
 
     Returns dict with keys:
         - text: full transcribed text
         - sentences: list of {begin_time, end_time, text} dicts (times in ms)
     """
-    print('  Submitting transcription task...')
     task_response = Transcription.async_call(
         model='paraformer-v2',
         file_urls=[audio_url],
@@ -25,7 +30,6 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
         )
 
     task_id = task_response.output.task_id
-    print(f'  Task ID: {task_id}')
 
     # Persist task_id so it can be resumed if interrupted
     from podscribe.task_state import load_state, save_state
@@ -33,33 +37,37 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
     state['task_id'] = task_id
     save_state(state)
 
-    return _wait_and_extract(task_id)
+    return _wait_and_extract(task_id, status_callback=status_callback)
 
 
-def resume_transcription(task_id: str) -> dict:
+def resume_transcription(
+    task_id: str,
+    status_callback: Callable[[str], None] | None = None,
+) -> dict:
     """Resume a previous transcription task by its task ID.
 
     Returns dict with keys:
         - text: full transcribed text
         - sentences: list of {begin_time, end_time, text} dicts (times in ms)
     """
-    print(f'  Resuming task: {task_id}')
-    return _wait_and_extract(task_id)
+    return _wait_and_extract(task_id, status_callback=status_callback)
 
 
-def _wait_and_extract(task_id: str) -> dict:
+def _wait_and_extract(
+    task_id: str,
+    status_callback: Callable[[str], None] | None = None,
+) -> dict:
     """Poll task status and extract result when done."""
     while True:
         time.sleep(5)
         result = Transcription.fetch(task=task_id)
         status = result.output.task_status
-        print(f'\r  Status: {status}', end='', flush=True)
+        if status_callback:
+            status_callback(status)
 
         if status == 'SUCCEEDED':
-            print()
             return _extract_result(result)
-        elif status == 'FAILED':
-            print()
+        if status == 'FAILED':
             raise RuntimeError(
                 f'Transcription failed: {result.output}'
             )

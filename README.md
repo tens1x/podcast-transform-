@@ -18,18 +18,23 @@ brew install python@3.12
 
 ## 安装步骤
 
-一键安装（推荐）：
+全局安装（推荐，适合直接使用命令）：
 
 ```bash
-git clone https://github.com/tens1x/podscribe.git
-cd podscribe
-bash setup.sh
+brew install pipx
+pipx install git+https://github.com/tens1x/podscribe.git
 ```
 
-脚本会自动创建虚拟环境、安装依赖、引导你配置 API Key，完成后会提示如何运行。
+安装完成后直接运行：
+
+```bash
+podscribe
+```
+
+首次运行 `podscribe` 时会引导你配置 API Key。
 
 <details>
-<summary>手动安装</summary>
+<summary>开发者 / 手动安装（适合需要改代码的贡献者）</summary>
 
 ```bash
 git clone https://github.com/tens1x/podscribe.git
@@ -45,14 +50,7 @@ pip install -e .
 
 ## 使用方法
 
-每次使用前先激活虚拟环境：
-
-```bash
-cd podscribe
-source venv/bin/activate
-```
-
-然后运行：
+安装后直接运行：
 
 ```bash
 podscribe
@@ -68,6 +66,18 @@ podscribe
 
 支持上下箭头选择、空格多选，操作体验类似现代 CLI 工具。
 
+## 子命令
+
+除了直接运行交互式主流程，也支持以下子命令：
+
+```bash
+podscribe config
+podscribe history
+```
+
+- `podscribe config`：查看或修改当前配置
+- `podscribe history`：查看历史转录记录
+
 ## 功能特性
 
 - 交互式 CLI 界面（上下选择、多选、彩色输出）
@@ -81,3 +91,5 @@ podscribe
 ```bash
 deactivate
 ```
+
+如果你使用的是上面的 `pipx` 全局安装方式，则不需要激活或退出虚拟环境。

@@ -30,3 +30,6 @@ echo "  1. 激活虚拟环境：source venv/bin/activate"
 echo "  2. 运行：podscribe"
 echo "  首次运行会引导你配置 API Key。"
 echo ""
+echo 'Tip: For global access without activating venv each time:'
+echo '  brew install pipx && pipx install .'
+echo ''
