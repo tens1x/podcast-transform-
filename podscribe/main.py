@@ -1,5 +1,4 @@
 import sys
-import time
 from pathlib import Path
 
 from rich.console import Console
@@ -328,8 +327,9 @@ def _check_resume():
     return None
 
 
-def _show_history(config: dict | None):
-    _banner(config)
+def _show_history(config: dict | None, show_banner: bool = True):
+    if show_banner:
+        _banner(config)
 
     records = sorted(
         load_history(),
@@ -363,9 +363,16 @@ def _show_history(config: dict | None):
     console.print(table)
 
 
-def _edit_config(current_config: dict | None):
-    console.clear()
-    _banner(current_config)
+def _edit_config(
+    current_config: dict | None,
+    *,
+    show_banner: bool = True,
+    clear_console: bool = True,
+):
+    if clear_console:
+        console.clear()
+    if show_banner:
+        _banner(current_config)
 
     current = _format_config(current_config)
     console.print()
@@ -388,6 +395,40 @@ def _edit_config(current_config: dict | None):
         padding=(0, 2),
         width=42,
     ))
+
+
+def _print_config_details(config: dict | None):
+    current = _format_config(config)
+    normalized = _normalize_config(config)
+
+    console.print()
+    console.print('  [bold cyan]Current config[/]')
+    console.print(f"    Format    : [green]{current['formats']}[/]")
+    console.print(f"    Output    : [dim]{current['output']}[/]")
+    console.print(f"    Save audio: [green]{current['save_audio']}[/]")
+    console.print(f"    Audio dir : [dim]{current['audio_dir'] if normalized['save_audio'] else '-'}[/]")
+    console.print(f"    AI post   : [green]{current['ai']}[/]")
+
+
+def _main_menu(config: dict | None) -> str:
+    from InquirerPy import inquirer
+
+    return inquirer.select(
+        message='What would you like to do?',
+        choices=[
+            {'name': 'Start transcription', 'value': 'start'},
+            {'name': 'View config', 'value': 'view_config'},
+            {'name': 'Edit config', 'value': 'edit_config'},
+            {'name': 'View history', 'value': 'view_history'},
+            {'name': 'Quit', 'value': 'quit'},
+        ],
+        pointer='›',
+        qmark='?',
+    ).execute()
+
+
+def _pause():
+    input('  Press Enter to continue...')
 
 
 def _build_state(episode_url: str, config: dict) -> dict:
@@ -551,7 +592,7 @@ def _process_episode(
 
 def main():
     command = sys.argv[1] if len(sys.argv) > 1 else None
-    current_config = load_config()
+    current_config = _normalize_config(load_config())
 
     if command == 'config':
         _edit_config(current_config)
@@ -561,71 +602,113 @@ def main():
         _show_history(current_config)
         return
 
-    _banner(current_config)
-
     from podscribe.setup_helper import check_and_setup
 
-    check_and_setup()
+    try:
+        _banner(current_config)
+        check_and_setup()
 
-    resumed = _check_resume()
-    if resumed:
-        config = _state_to_config(resumed)
-    else:
-        config = _normalize_config(current_config) if current_config else None
+        resumed = _check_resume()
+        config = _state_to_config(resumed) if resumed else current_config
 
-    first_iteration = True
-    next_resumed_state = resumed
-
-    while True:
-        if next_resumed_state:
-            episode_urls = [next_resumed_state['episode_url']]
-        else:
-            if not first_iteration:
-                console.clear()
-            try:
-                episode_urls = _prompt_episode_urls(
-                    config or current_config,
-                    prompt_title='Paste new URL(s) to continue, or press Ctrl+C to exit' if not first_iteration else 'Enter episode URLs',
-                    clear_console=first_iteration,
+        if resumed:
+            results = [
+                _process_episode(
+                    episode_url=resumed['episode_url'],
+                    config=config,
+                    index=1,
+                    total=1,
+                    resumed_state=resumed,
                 )
-            except KeyboardInterrupt:
-                console.print('\n  [dim]Goodbye.[/]')
-                return
-            if config is None:
-                config = _prompt_config()
-                save_config(config)
+            ]
+            succeeded = sum(1 for result in results if result)
+            failed = len(results) - succeeded
 
-        results: list[bool] = []
-        for index, episode_url in enumerate(episode_urls, start=1):
-            resumed_state = next_resumed_state if next_resumed_state and index == 1 else None
-            results.append(_process_episode(
-                episode_url=episode_url,
-                config=config,
-                index=index,
-                total=len(episode_urls),
-                resumed_state=resumed_state,
+            console.print()
+            summary_text = Text()
+            summary_text.append('Batch complete: ', style='cyan')
+            summary_text.append(f'{succeeded} succeeded', style='green')
+            summary_text.append(', ', style='cyan')
+            summary_text.append(f'{failed} failed', style='red' if failed else 'cyan')
+            console.print(Panel(
+                summary_text,
+                border_style='cyan',
+                title='[bold cyan]Batch Summary[/]',
+                padding=(0, 2),
+                width=60,
             ))
+            console.print()
+            _pause()
+            config = _normalize_config(load_config())
 
-        succeeded = sum(1 for result in results if result)
-        failed = len(results) - succeeded
+        while True:
+            console.clear()
+            _banner(config)
+            choice = _main_menu(config)
 
-        console.print()
-        summary_text = Text()
-        summary_text.append('Batch complete: ', style='cyan')
-        summary_text.append(f'{succeeded} succeeded', style='green')
-        summary_text.append(', ', style='cyan')
-        summary_text.append(f'{failed} failed', style='red' if failed else 'cyan')
-        console.print(Panel(
-            summary_text,
-            border_style='cyan',
-            title='[bold cyan]Batch Summary[/]',
-            padding=(0, 2),
-            width=60,
-        ))
+            if choice == 'start':
+                episode_urls = _prompt_episode_urls(
+                    config,
+                    prompt_title='Enter episode URLs',
+                    clear_console=True,
+                )
+                results: list[bool] = []
+                for index, episode_url in enumerate(episode_urls, start=1):
+                    results.append(_process_episode(
+                        episode_url=episode_url,
+                        config=config,
+                        index=index,
+                        total=len(episode_urls),
+                    ))
 
-        time.sleep(0.8)
-        first_iteration = False
-        next_resumed_state = None
+                succeeded = sum(1 for result in results if result)
+                failed = len(results) - succeeded
+
+                console.print()
+                summary_text = Text()
+                summary_text.append('Batch complete: ', style='cyan')
+                summary_text.append(f'{succeeded} succeeded', style='green')
+                summary_text.append(', ', style='cyan')
+                summary_text.append(f'{failed} failed', style='red' if failed else 'cyan')
+                console.print(Panel(
+                    summary_text,
+                    border_style='cyan',
+                    title='[bold cyan]Batch Summary[/]',
+                    padding=(0, 2),
+                    width=60,
+                ))
+                console.print()
+                _pause()
+                continue
+
+            if choice == 'view_config':
+                console.clear()
+                _banner(config)
+                _print_config_details(config)
+                console.print()
+                _pause()
+                continue
+
+            if choice == 'edit_config':
+                console.clear()
+                _banner(config)
+                _edit_config(config, show_banner=False, clear_console=False)
+                config = _normalize_config(load_config())
+                continue
+
+            if choice == 'view_history':
+                console.clear()
+                _banner(config)
+                _show_history(config, show_banner=False)
+                console.print()
+                _pause()
+                continue
+
+            console.print('\n  [dim]Goodbye.[/]')
+            return
+    except KeyboardInterrupt:
+        console.print('\n  [dim]Goodbye.[/]')
+        return
 
 
 if __name__ == '__main__':
